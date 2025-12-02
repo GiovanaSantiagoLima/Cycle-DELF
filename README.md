@@ -1,46 +1,62 @@
-## 🇫🇷 Visão Geral
+![Cycle DELF](https://img.shields.io/badge/🇫🇷%20Cycle%20DELF-Préparation%204x15-blue?style=for-the-badge&labelColor=white&color=red)
 
-O **Cycle DELF** é um sistema projetado para apoiar estudantes que desejam se preparar para o DELF (Diplôme d'Études en Langue Française) de forma **estruturada, equilibrada e diária**. 
-A proposta central é transformar a rotina de estudo em um hábito leve, acessível e repetível, utilizando ciclos curtos de aprendizagem.
----
-### ✨ Entrega de Valor Principal
+Um sistema para estudar para o DELF com consistência, leveza e equilíbrio.
 
-A entrega essencial do sistema é: **Consistência Balanceada**. O método se baseia no princípio **Sessão 4x15**, no qual o usuário realiza quatro módulos de 15 minutos, cada um dedicado a uma das competências do exame. 
-Isso minimiza a sobrecarga mental, evita negligenciar áreas importantes e cria uma rotina simples, eficiente e sustentável.
----
+**📘 Visão Geral**
 
-### 🎯 Funcionalidade Chave: O Gerador 4x15
+O Cycle DELF é uma plataforma pensada para estudantes que desejam se preparar para o DELF (Diplôme d'Études en Langue Française) de forma diária, estruturada e sustentável.
+A proposta central é transformar o preparo para o exame em um hábito simples e repetível, utilizando ciclos curtos de aprendizagem que distribuem as habilidades de forma equilibrada.
 
-A funcionalidade principal do sistema é a organização e execução automática das sessões diárias.
+**✨ Entrega de Valor: Consistência Balanceada**
 
-#### 1. Módulos de 15 Minutos Fixos
+O sistema funciona com o método Sessão 4×15 — quatro módulos de 15 minutos, cada um dedicado a uma competência do exame.
+Esse formato:
+- reduz a sobrecarga mental;
+- garante equilíbrio entre todas as áreas avaliadas;
+- facilita a criação de um hábito sólido e duradouro.
 
-O dia de estudo é dividido em quatro blocos de 15 minutos, totalizando 60 minutos. Cada bloco é focado em uma habilidade específica do DELF:
+**Funcionalidade Principal: Gerador 4×15**
 
-| Habilidade | Foco do Módulo |
-| :--- | :--- |
-| Compréhension Orale | Otimização da escuta ativa e anotações. |
-| Production Écrite | Prática de estrutura de textos (cartas, ensaios, sínteses). |
-| Compréhension Écrite | Leitura rápida e identificação de vocabulário específico. |
-| Production Orale | Simulação de monólogos e interações (gravação de áudio). |
+O Cycle DELF organiza automaticamente a sessão completa do dia, guiando o estudante em cada etapa.
 
-Ao iniciar o ciclo, o sistema controla o tempo automaticamente e indica a troca de módulo.
+**1. 📚 Módulos Fixos de 15 Minutos**
 
-#### 2. Acompanhamento Visual (Streak Tracker)
+Cada sessão diária consiste em quatro blocos de 15 minutos, totalizando 1 hora de estudo focado. Os módulos correspondem às competências oficiais do DELF:
 
-Após completar a sessão 4x15, o sistema marca o dia como concluído em um calendário visual de *streaks*. 
-O objetivo é incentivar o usuário a manter uma sequência de dias ativos, aumentando o engajamento pelo efeito de gamificação.
----
-👤 Cliente Ideal
-Estudantes de francês de nível intermediário a avançado (B1-C2) que:
-- Têm rotinas ocupadas e precisam de um método de estudo que caiba em intervalos curtos.
-- Lutam contra a falta de consistência ou a sobrecarga de longas sessões de estudo.
-- Buscam uma abordagem metódica para garantir que nenhuma parte do exame seja negligenciada.
+| Habilidade | Foco |
+|-----------|------|
+| **Compréhension Orale** | Treino de escuta, notas e compreensão de sotaques. |
+| **Production Écrite** | Estruturação de textos: cartas, e-mails, sínteses e ensaios. |
+| **Compréhension Écrite** | Leitura estratégica, scanning e vocabulário específico. |
+| **Production Orale** | Simulações, prompts, gravações e fluência. |
+
+O sistema controla o tempo, orienta a troca de módulo e registra o progresso de cada sessão.
+
+**2. 📈 Streak Tracker (Acompanhamento Visual)**
+
+Ao concluir o ciclo diário, o usuário desbloqueia uma marca visual no calendário de streaks.
+Esse acompanhamento gamificado:
+- reforça o hábito;
+- aumenta o engajamento;
+- mantém o aluno motivado em manter sua sequência ativa.
+
+**🎯 Público-alvo**
+
+O Cycle DELF foi feito para estudantes de francês que:
+- possuem nível B1 ou B2;
+- têm rotinas cheias e precisam de um método eficiente em pouco tempo,
+- lutam com a falta de consistência ou com sessões longas demais,
+- querem garantir preparo equilibrado em todas as competências do exame.
 
 **🛠️ Tecnologias Planejadas**
 
-- Frontend: HTML + CSS + JavaScript
-- Backend / Armazenamento: API simples em Node.js + banco de dados
-- Recursos Integrados: Banco de prompts para produção escrita e oral, Links de áudio/vídeo filtrados por nível (A1–B2)´, Timer integrado por módulo e Sistema de progresso e streaks.
+![HTML](https://img.shields.io/badge/HTML5-e34f26?style=for-the-badge&logo=html5&logoColor=white)
+![CSS](https://img.shields.io/badge/CSS3-1572b6?style=for-the-badge&logo=css3&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-f7df1e?style=for-the-badge&logo=javascript&logoColor=black)
+![FastAPI](https://img.shields.io/badge/FastAPI-109989?style=for-the-badge&logo=fastapi&logoColor=white)
 
-
+**Recursos Integrados**
+- Banco de prompts para produção escrita e oral
+- Biblioteca de áudios e vídeos filtrados por nível (B1–B2)
+- Timer automático por módulo
+- Sistema de progresso e streaks
