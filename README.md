@@ -1,4 +1,6 @@
-![Cycle DELF](https://img.shields.io/badge/🇫🇷%20Cycle%20DELF-Préparation%204x15-blue?style=for-the-badge&labelColor=white&color=red)
+![Cycle DELF](https://img.shields.io/badge/🇫🇷%20Cycle%20DELF-Préparation%204x15-blue?style=for-the-badge&labelColor=white&color=red)     por Giovana Santiago Lima
+
+Trabalho Prático de Banco de Dados NoSQL
 
 Um sistema para estudar para o DELF com consistência, leveza e equilíbrio.
 
