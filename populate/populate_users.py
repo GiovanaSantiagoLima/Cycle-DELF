@@ -21,4 +21,3 @@ users = [
 
 users_collection.insert_many(users)
 
-print("✅ Usuários inseridos com sucesso!")

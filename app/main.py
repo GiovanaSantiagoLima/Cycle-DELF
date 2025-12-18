@@ -1,67 +1,63 @@
-from fastapi import FastAPI
-from app.functions.user_functions import (
-    create_user,
-    get_users,
-    update_user,
-    delete_user)
-from app.functions.session_functions import (
-    create_session,
-    get_sessions,
-    update_session,
-    delete_session)
-from app.funcionalidade import(
-    start_session, 
-    get_cycle_status,
-    finish_session)
+from fastapi import FastAPI, HTTPException
+from datetime import datetime
+from bson import ObjectId
+from app.database import users_collection, sessions_collection
+from app.funcionalidade import (
+    start_session,
+    finish_session,
+    get_cycle_status
+)
 
-app = FastAPI(title="Cycle DELF API")
+app = FastAPI()
 
-# ---------- USERS ----------
+# -----------------------------
+# USERS
+# -----------------------------
+
 @app.post("/users")
-def create_user_route(user: dict):
-    return create_user(user)
+def create_user(user: dict):
+    # Garante que level padrão existe se não for enviado
+    if "level" not in user:
+        user["level"] = "A1"
+        
+    user["created_at"] = datetime.now()
+    result = users_collection.insert_one(user)
+    
+    return {
+        "message": "Usuário criado com sucesso",
+        "id": str(result.inserted_id)
+    }
 
 @app.get("/users")
-def get_users_route():
-    return get_users()
+def list_users():
+    users = []
+    # Converte o ObjectId do Mongo para string para não dar erro no retorno
+    for user in users_collection.find():
+        user["_id"] = str(user["_id"])
+        users.append(user)
+    return users
 
-@app.put("/users/{user_id}")
-def update_user_route(user_id: str, data: dict):
-    return update_user(user_id, data)
+# -----------------------------
+# SESSIONS / CICLO
+# -----------------------------
 
-@app.delete("/users/{user_id}")
-def delete_user_route(user_id: str):
-    return delete_user(user_id)
-
-
-# ---------- SESSIONS ----------
-@app.post("/sessions/{user_id}")
-def create_session_route(user_id: str):
-    return create_session(user_id)
-
-@app.get("/sessions/{user_id}")
-def get_sessions_route(user_id: str):
-    return get_sessions(user_id)
-
-@app.put("/sessions/{session_id}")
-def update_session_route(session_id: str, data: dict):
-    return update_session(session_id, data)
-
-@app.delete("/sessions/{session_id}")
-def delete_session_route(session_id: str):
-    return delete_session(session_id)
-
-# ---------- FUNCIONALIDADE ----------
 @app.post("/sessions/start/{user_id}")
-def start_session_route(user_id: str):
-    return start_session(user_id)
+def start_user_session(user_id: str):
+    try:
+        return start_session(user_id)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/cycle/status/{user_id}")
-def cycle_status_route(user_id: str):
-    return get_cycle_status(user_id)
+@app.post("/sessions/finish/{session_id}")
+def finish_user_session(session_id: str):
+    try:
+        return finish_session(session_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Sessão inválida")
 
-@app.put("/sessions/finish/{session_id}")
-def finish_session_route(session_id: str):
-    return finish_session(session_id)
-
-
+@app.get("/cycle/{user_id}")
+def get_user_cycle(user_id: str):
+    try:
+        return get_cycle_status(user_id)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

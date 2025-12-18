@@ -25,4 +25,4 @@ sessions = [
 
 sessions_collection.insert_many(sessions)
 
-print("✅ Sessões inseridas com sucesso!")
+
