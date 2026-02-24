@@ -7,12 +7,12 @@ from app.funcionalidade import (
     finish_session,
     get_cycle_status
 )
-from pymongo import MongoClient, ASCENDING, TEXT, GEOSPHERE # Certifique-se de que estão aqui
-from typing import Optional # Essencial para o erro de 'Optional'
+from pymongo import MongoClient, ASCENDING, TEXT, GEOSPHERE 
+from typing import Optional 
 import uvicorn
+import random 
 
 app = FastAPI()
-
 # ---------------------------------------------------------
 # ROTAS DE USUÁRIOS
 # ---------------------------------------------------------
@@ -21,6 +21,15 @@ app = FastAPI()
 def create_user(user: dict):
     if "level" not in user:
         user["level"] = "A1"
+    if "location" not in user:
+        user["location"] = {
+            "type": "Point",
+            "coordinates": [
+                random.uniform(-46.8, -46.3), # Longitude
+                random.uniform(-23.7, -23.4)  # Latitude
+            ]
+        }
+    
     user["created_at"] = datetime.now()
     result = users_collection.insert_one(user)
     return {"message": "Usuário criado", "id": str(result.inserted_id)}
@@ -45,6 +54,32 @@ async def filter_users(level: Optional[str] = None):
         u["_id"] = str(u["_id"])
     return users
 
+@app.post("/users/populate-locations")
+async def populate_locations():
+    # Busca apenas quem não tem o campo 'location'
+    users_sem_loc = users_collection.find({"location": {"$exists": False}})
+    updated_count = 0
+
+    for user in users_sem_loc:
+        random_lon = random.uniform(-46.8, -46.3)
+        random_lat = random.uniform(-23.7, -23.4)
+
+        users_collection.update_one(
+            {"_id": user["_id"]},
+            {
+                "$set": {
+                    "location": {
+                        "type": "Point",
+                        "coordinates": [random_lon, random_lat] # Longitude primeiro
+                    }
+                }
+            }
+        )
+        updated_count += 1
+
+    return {"status": "success", "message": f"{updated_count} usuários atualizados!"}
+
+
 @app.get("/users/nearby")
 async def get_nearby_users(lat: float, lon: float, radius_km: float = 10):
     query = {
@@ -60,6 +95,8 @@ async def get_nearby_users(lat: float, lon: float, radius_km: float = 10):
         u["_id"] = str(u["_id"])
     return users
 
+
+
 # ---------------------------------------------------------
 # ROTAS DE MATERIAIS
 # ---------------------------------------------------------
@@ -67,15 +104,8 @@ async def get_nearby_users(lat: float, lon: float, radius_km: float = 10):
 @app.get("/materials/search")
 async def search_materials(q: str):
     clean_q = q.strip()
-    # Busca Híbrida: $text para performance + $regex para flexibilidade
-    query = {
-        "$or": [
-            {"$text": {"$search": clean_q}},
-            {"title": {"$regex": clean_q, "$options": "i"}},
-            {"content": {"$regex": clean_q, "$options": "i"}},
-            {"competence": {"$regex": clean_q, "$options": "i"}}
-        ]
-    }
+    query = {"$text": {"$search": clean_q}}
+    
     materials = list(materials_collection.find(query))
     for m in materials:
         m["_id"] = str(m["_id"])
@@ -185,23 +215,19 @@ def criando_index():
         print("✅ índices configurados!")
 criando_index()
 
+
 @app.get("/users/filter")
 async def filter_users(level: Optional[str] = None):
     query = {}
     if level:
-        # .strip() remove espaços como "B1 " que vimos no seu banco
-        query["level"] = level.strip() 
+        query["level"] = level.strip()
     
-    # .explain() pode ser usado aqui durante o debug para ver o IXSCAN
     users = list(users_collection.find(query))
+    # Converte ObjectId para string
     for u in users:
         u["_id"] = str(u["_id"])
     return users
 
-@app.get("/admin/indexes")
-async def list_db_indexes():
-    return {
-        "users": [idx for idx in users_collection.list_indexes()],
-        "materials": [idx for idx in materials_collection.list_indexes()]
-    }
+import random
+
 

@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, date
-from database import sessions_collection
+from app.database import sessions_collection
 from bson import ObjectId
 
 MAX_SESSIONS = 4
