@@ -1,45 +1,89 @@
 from fastapi import FastAPI, HTTPException
 from datetime import datetime
 from bson import ObjectId
-from app.database import users_collection, sessions_collection
+from app.database import users_collection, sessions_collection, materials_collection
 from app.funcionalidade import (
     start_session,
     finish_session,
     get_cycle_status
 )
+from pymongo import MongoClient, ASCENDING, TEXT, GEOSPHERE # Certifique-se de que estão aqui
+from typing import Optional # Essencial para o erro de 'Optional'
+import uvicorn
 
 app = FastAPI()
 
-# -----------------------------
-# USERS
-# -----------------------------
+# ---------------------------------------------------------
+# ROTAS DE USUÁRIOS
+# ---------------------------------------------------------
 
 @app.post("/users")
 def create_user(user: dict):
-    # Garante que level padrão existe se não for enviado
     if "level" not in user:
         user["level"] = "A1"
-        
     user["created_at"] = datetime.now()
     result = users_collection.insert_one(user)
-    
-    return {
-        "message": "Usuário criado com sucesso",
-        "id": str(result.inserted_id)
-    }
+    return {"message": "Usuário criado", "id": str(result.inserted_id)}
 
 @app.get("/users")
 def list_users():
     users = []
-    # Converte o ObjectId do Mongo para string para não dar erro no retorno
     for user in users_collection.find():
         user["_id"] = str(user["_id"])
         users.append(user)
     return users
 
-# -----------------------------
-# SESSIONS / CICLO
-# -----------------------------
+@app.get("/users/filter")
+async def filter_users(level: Optional[str] = None):
+    query = {}
+    if level:
+        query["level"] = level.strip()
+    
+    # Busca correta na coleção de usuários
+    users = list(users_collection.find(query))
+    for u in users:
+        u["_id"] = str(u["_id"])
+    return users
+
+@app.get("/users/nearby")
+async def get_nearby_users(lat: float, lon: float, radius_km: float = 10):
+    query = {
+        "location": {
+            "$near": {
+                "$geometry": {"type": "Point", "coordinates": [lon, lat]},
+                "$maxDistance": radius_km * 1000
+            }
+        }
+    }
+    users = list(users_collection.find(query))
+    for u in users:
+        u["_id"] = str(u["_id"])
+    return users
+
+# ---------------------------------------------------------
+# ROTAS DE MATERIAIS
+# ---------------------------------------------------------
+
+@app.get("/materials/search")
+async def search_materials(q: str):
+    clean_q = q.strip()
+    # Busca Híbrida: $text para performance + $regex para flexibilidade
+    query = {
+        "$or": [
+            {"$text": {"$search": clean_q}},
+            {"title": {"$regex": clean_q, "$options": "i"}},
+            {"content": {"$regex": clean_q, "$options": "i"}},
+            {"competence": {"$regex": clean_q, "$options": "i"}}
+        ]
+    }
+    materials = list(materials_collection.find(query))
+    for m in materials:
+        m["_id"] = str(m["_id"])
+    return materials
+
+# ---------------------------------------------------------
+# SESSIONS E CICLO
+# ---------------------------------------------------------
 
 @app.post("/sessions/start/{user_id}")
 def start_user_session(user_id: str):
@@ -54,10 +98,110 @@ def finish_user_session(session_id: str):
         return finish_session(session_id)
     except Exception:
         raise HTTPException(status_code=400, detail="Sessão inválida")
+# -----------------------------
+# REQUISITOS NO SQL: POPULATE 
+# -----------------------------
 
-@app.get("/cycle/{user_id}")
-def get_user_cycle(user_id: str):
+@app.post("/populate")
+async def populate_api(count: int = 50):
     try:
-        return get_cycle_status(user_id)
+        from populate.seed import generate_bulk_data
+        generate_bulk_data(n_materials=count)
+        return {"status": "success", "message": f"{count} registros inseridos via insertMany"}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Erro ao popular: {str(e)}")
+
+# -----------------------------
+# DATA ANALYTICS: AGGREGATION PIPELINES
+# -----------------------------
+
+@app.get("/analytics/activity-by-competence/{user_id}")
+def activity_by_competence(user_id: str):
+    pipeline = [
+        {"$match": {"user_id": user_id}},
+        {
+            "$group": {
+                "_id": "$competence",
+                "sessions": {"$sum": 1},
+                "avg_score": {"$avg": "$score"}
+            }
+        },
+        {"$sort": {"sessions": -1}}
+    ]
+
+    return list(sessions_collection.aggregate(pipeline))
+from bson import ObjectId
+
+@app.get("/analytics/monthly-progress/{user_id}")
+def monthly_progress(user_id: str):
+    pipeline = [
+        {"$match": {"user_id": user_id}},
+        {
+            "$group": {
+                "_id": {
+                    "year": {"$year": "$start_time"},
+                    "month": {"$month": "$start_time"}
+                },
+                "sessions": {"$sum": 1},
+                "avg_score": {"$avg": "$score"}
+            }
+        },
+        {"$sort": {"_id.year": 1, "_id.month": 1}}
+    ]
+
+    return list(sessions_collection.aggregate(pipeline))
+
+
+@app.get("/analytics/top-users")
+def top_users():
+    pipeline = [
+        {
+            "$group": {
+                "_id": "$user_id",
+                "total_sessions": {"$sum": 1}
+            }
+        },
+        {"$sort": {"total_sessions": -1}},
+        {"$limit": 10}
+    ]
+
+    return list(sessions_collection.aggregate(pipeline))
+
+# -----------------------------
+# INDICES 
+# -----------------------------
+
+def criando_index():
+        users_collection.create_index([("name", ASCENDING)], unique=True)
+        users_collection.create_index([("level", ASCENDING)])
+        users_collection.create_index([("location", GEOSPHERE)])
+        
+        materials_collection.create_index([
+            ("title", TEXT), 
+            ("content", TEXT),
+            ("competence", TEXT)
+        ], name="busca_texto_global")
+        
+        print("✅ índices configurados!")
+criando_index()
+
+@app.get("/users/filter")
+async def filter_users(level: Optional[str] = None):
+    query = {}
+    if level:
+        # .strip() remove espaços como "B1 " que vimos no seu banco
+        query["level"] = level.strip() 
+    
+    # .explain() pode ser usado aqui durante o debug para ver o IXSCAN
+    users = list(users_collection.find(query))
+    for u in users:
+        u["_id"] = str(u["_id"])
+    return users
+
+@app.get("/admin/indexes")
+async def list_db_indexes():
+    return {
+        "users": [idx for idx in users_collection.list_indexes()],
+        "materials": [idx for idx in materials_collection.list_indexes()]
+    }
+
