@@ -1,0 +1,21 @@
+.# Variáveis de ambiente (SEGURANÇA!)
+.env
+
+# Python (Arquivos compilados)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ambientes virtuais
+.venv/
+venv/
+env/
+ENV/
+
+# IDEs (VS Code ou PyCharm)
+.vscode/
+.idea/
+
+# Logs
+*.log
