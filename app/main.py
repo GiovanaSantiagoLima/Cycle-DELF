@@ -1,43 +1,65 @@
 from fastapi import FastAPI, HTTPException
 from datetime import datetime
 from bson import ObjectId
-from app.database import users_collection, sessions_collection, materials_collection
+from app.database import db_connection, connect_to_nosql, close_nosql_connections
 from app.funcionalidade import (
     start_session,
-    finish_session,
-    get_cycle_status
+    finish_session
 )
-from pymongo import MongoClient, ASCENDING, TEXT, GEOSPHERE 
+from pymongo import ASCENDING, TEXT, GEOSPHERE 
 from typing import Optional 
-import uvicorn
 import random 
+import time
+from contextlib import asynccontextmanager
 
-app = FastAPI()
 # ---------------------------------------------------------
-# ROTAS DE USUÁRIOS
+# GERENCIAMENTO DE CICLO DE VIDA (CONEXÃO E ÍNDICES)
+# ---------------------------------------------------------
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await connect_to_nosql()    
+    try:
+        await db_connection.users.create_index([("name", ASCENDING)], unique=True)
+        await db_connection.users.create_index([("level", ASCENDING)])
+        await db_connection.users.create_index([("location", GEOSPHERE)])
+        
+        await db_connection.materials.create_index([
+            ("title", TEXT), 
+            ("content", TEXT),
+            ("competence", TEXT)
+        ], name="busca_texto_global")
+        print("✅ Índices NoSQL configurados!")
+    except Exception as e:
+        print(f"⚠️ Erro ao criar índices: {e}")
+        
+    yield
+    await close_nosql_connections()
+
+app = FastAPI(title="Cycle DELF API", lifespan=lifespan)
+
+# ---------------------------------------------------------
+# ROTAS DE USUÁRIOS 
 # ---------------------------------------------------------
 
 @app.post("/users")
-def create_user(user: dict):
+async def create_user(user: dict):
     if "level" not in user:
         user["level"] = "A1"
     if "location" not in user:
         user["location"] = {
             "type": "Point",
-            "coordinates": [
-                random.uniform(-46.8, -46.3), # Longitude
-                random.uniform(-23.7, -23.4)  # Latitude
-            ]
+            "coordinates": [random.uniform(-46.8, -46.3), random.uniform(-23.7, -23.4)]
         }
     
     user["created_at"] = datetime.now()
-    result = users_collection.insert_one(user)
+    result = await db_connection.users.insert_one(user)
     return {"message": "Usuário criado", "id": str(result.inserted_id)}
 
 @app.get("/users")
-def list_users():
+async def list_users():
     users = []
-    for user in users_collection.find():
+    cursor = db_connection.users.find()
+    for user in await cursor.to_list(length=100):
         user["_id"] = str(user["_id"])
         users.append(user)
     return users
@@ -48,37 +70,11 @@ async def filter_users(level: Optional[str] = None):
     if level:
         query["level"] = level.strip()
     
-    # Busca correta na coleção de usuários
-    users = list(users_collection.find(query))
+    cursor = db_connection.users.find(query)
+    users = await cursor.to_list(length=100)
     for u in users:
         u["_id"] = str(u["_id"])
     return users
-
-@app.post("/users/populate-locations")
-async def populate_locations():
-    # Busca apenas quem não tem o campo 'location'
-    users_sem_loc = users_collection.find({"location": {"$exists": False}})
-    updated_count = 0
-
-    for user in users_sem_loc:
-        random_lon = random.uniform(-46.8, -46.3)
-        random_lat = random.uniform(-23.7, -23.4)
-
-        users_collection.update_one(
-            {"_id": user["_id"]},
-            {
-                "$set": {
-                    "location": {
-                        "type": "Point",
-                        "coordinates": [random_lon, random_lat] # Longitude primeiro
-                    }
-                }
-            }
-        )
-        updated_count += 1
-
-    return {"status": "success", "message": f"{updated_count} usuários atualizados!"}
-
 
 @app.get("/users/nearby")
 async def get_nearby_users(lat: float, lon: float, radius_km: float = 10):
@@ -90,12 +86,11 @@ async def get_nearby_users(lat: float, lon: float, radius_km: float = 10):
             }
         }
     }
-    users = list(users_collection.find(query))
+    cursor = db_connection.users.find(query)
+    users = await cursor.to_list(length=100)
     for u in users:
         u["_id"] = str(u["_id"])
     return users
-
-
 
 # ---------------------------------------------------------
 # ROTAS DE MATERIAIS
@@ -103,50 +98,50 @@ async def get_nearby_users(lat: float, lon: float, radius_km: float = 10):
 
 @app.get("/materials/search")
 async def search_materials(q: str):
-    clean_q = q.strip()
-    query = {"$text": {"$search": clean_q}}
-    
-    materials = list(materials_collection.find(query))
+    query = {"$text": {"$search": q.strip()}}
+    cursor = db_connection.materials.find(query)
+    materials = await cursor.to_list(length=50)
     for m in materials:
         m["_id"] = str(m["_id"])
     return materials
 
 # ---------------------------------------------------------
-# SESSIONS E CICLO
+# SESSIONS E CICLO (REDIS + MONGO)
 # ---------------------------------------------------------
 
 @app.post("/sessions/start/{user_id}")
-def start_user_session(user_id: str):
+async def start_user_session(user_id: str):
     try:
-        return start_session(user_id)
+        return await start_session(user_id)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/sessions/finish/{session_id}")
-def finish_user_session(session_id: str):
-    try:
-        return finish_session(session_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Sessão inválida")
-# -----------------------------
-# REQUISITOS NO SQL: POPULATE 
-# -----------------------------
+@app.post("/sessao/iniciar/{user_id}")
+async def iniciar_modulo_redis(user_id: str, modulo: str):
+    chave = f"sessao_ativa:{user_id}"
+    dados_sessao = {
+        "modulo": modulo,
+        "inicio": str(time.time()), 
+        "status": "em_progresso"
+    }    
+    await db_connection.redis.hset(chave, mapping=dados_sessao)
+    await db_connection.redis.expire(chave, 1200) 
+    return {"msg": f"Ciclo de {modulo} iniciado no Redis!"}
 
-@app.post("/populate")
-async def populate_api(count: int = 50):
-    try:
-        from populate.seed import generate_bulk_data
-        generate_bulk_data(n_materials=count)
-        return {"status": "success", "message": f"{count} registros inseridos via insertMany"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao popular: {str(e)}")
+@app.post("/sessao/finalizar/{user_id}")
+async def finalizar_sessao_redis(user_id: str):
+    hoje = datetime.now().timetuple().tm_yday 
+    chave_streak = f"streak:{datetime.now().year}:{user_id}"
+        await db_connection.redis.setbit(chave_streak, hoje, 1)
+    dias_ativos = await db_connection.redis.bitcount(chave_streak)
+        return {"msg": "Sessão concluída!", "dias_totais_no_ano": dias_ativos}
 
-# -----------------------------
-# DATA ANALYTICS: AGGREGATION PIPELINES
-# -----------------------------
+# ---------------------------------------------------------
+# DATA ANALYTICS (AGGREGATION)
+# ---------------------------------------------------------
 
 @app.get("/analytics/activity-by-competence/{user_id}")
-def activity_by_competence(user_id: str):
+async def activity_by_competence(user_id: str):
     pipeline = [
         {"$match": {"user_id": user_id}},
         {
@@ -158,76 +153,36 @@ def activity_by_competence(user_id: str):
         },
         {"$sort": {"sessions": -1}}
     ]
+    # Aggregate também é async no Motor
+    result = await db_connection.sessions.aggregate(pipeline).to_list(length=20)
+    return result
 
-    return list(sessions_collection.aggregate(pipeline))
-from bson import ObjectId
+# ---------------------------------------------------------
+# REDIS AVANÇADO (BLOOM & HLL)
+# ---------------------------------------------------------
 
-@app.get("/analytics/monthly-progress/{user_id}")
-def monthly_progress(user_id: str):
-    pipeline = [
-        {"$match": {"user_id": user_id}},
-        {
-            "$group": {
-                "_id": {
-                    "year": {"$year": "$start_time"},
-                    "month": {"$month": "$start_time"}
-                },
-                "sessions": {"$sum": 1},
-                "avg_score": {"$avg": "$score"}
-            }
-        },
-        {"$sort": {"_id.year": 1, "_id.month": 1}}
-    ]
-
-    return list(sessions_collection.aggregate(pipeline))
-
-
-@app.get("/analytics/top-users")
-def top_users():
-    pipeline = [
-        {
-            "$group": {
-                "_id": "$user_id",
-                "total_sessions": {"$sum": 1}
-            }
-        },
-        {"$sort": {"total_sessions": -1}},
-        {"$limit": 10}
-    ]
-
-    return list(sessions_collection.aggregate(pipeline))
-
-# -----------------------------
-# INDICES 
-# -----------------------------
-
-def criando_index():
-        users_collection.create_index([("name", ASCENDING)], unique=True)
-        users_collection.create_index([("level", ASCENDING)])
-        users_collection.create_index([("location", GEOSPHERE)])
+@app.get("/material/proximo/{user_id}")
+async def pegar_material(user_id: str):
+    material = await db_connection.materials.find_one({"tipo": "escrita"})
+    if not material:
+        raise HTTPException(status_code=404, detail="Nenhum material encontrado")
         
-        materials_collection.create_index([
-            ("title", TEXT), 
-            ("content", TEXT),
-            ("competence", TEXT)
-        ], name="busca_texto_global")
+    material_id = str(material["_id"])    
+        try:
+        visto = await db_connection.redis.execute_command("BF.EXISTS", f"vistos:{user_id}", material_id)
+        if visto:
+            return {"msg": "O Bloom Filter detectou que você já viu este material recentemente!"}
         
-        print("✅ índices configurados!")
-criando_index()
+        await db_connection.redis.execute_command("BF.ADD", f"vistos:{user_id}", material_id)
+    except Exception as e:
+        print(f"Erro Bloom Filter: {e}")
+        
+    material["_id"] = material_id
+    return material
 
-
-@app.get("/users/filter")
-async def filter_users(level: Optional[str] = None):
-    query = {}
-    if level:
-        query["level"] = level.strip()
-    
-    users = list(users_collection.find(query))
-    # Converte ObjectId para string
-    for u in users:
-        u["_id"] = str(u["_id"])
-    return users
-
-import random
-
-
+@app.post("/vocabulario/adicionar/{user_id}")
+async def adicionar_palavras(user_id: str, palavras: list[str]):
+    chave_hll = f"vocab_estimado:{user_id}"
+    await db_connection.redis.pfadd(chave_hll, *palavras) 
+    total_estimado = await db_connection.redis.pfcount(chave_hll)
+    return {"total_palavras_vistas_aproximadamente": total_estimado}
