@@ -1,9 +1,16 @@
+from pymongo import MongoClient
+from contextlib import asynccontextmanager
+import os
 import redis.asyncio as redis
 from motor.motor_asyncio import AsyncIOMotorClient
-from contextlib import asynccontextmanager
+from dotenv import load_dotenv
 
-MONGO_URI = "mongodb+srv://admin:DELF2026@cluster0.k9ycyvh.mongodb.net/cycledelf?retryWrites=true&w=majority"
-REDIS_URL = "redis://default:WbxSx1aucKYkxbfJwSBfMxfwbIiSWW37@redis-15626.c261.us-east-1-4.ec2.cloud.redislabs.com:15626"
+# Carrega as variáveis do arquivo .env
+load_dotenv()
+
+# Pega as URLs das variáveis de ambiente
+MONGO_URI = os.getenv("MONGO_URI")
+REDIS_URL = os.getenv("REDIS_URL")
 
 class Database:
     client: AsyncIOMotorClient = None
