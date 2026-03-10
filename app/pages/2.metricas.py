@@ -73,3 +73,45 @@ if st.sidebar.button("Trocar Usuário"):
     for key in list(st.session_state.keys()):
         del st.session_state[key]
     st.rerun()
+
+# --- SEÇÃO REDIS (STREAK E VOCABULÁRIO) ---
+st.divider()
+st.subheader("🚀 Conquistas Rápidas (Redis)")
+
+col_streak, col_vocab = st.columns(2)
+
+# Testando a rota de Streak (Bitmap do Redis)
+with col_streak:
+    st.write("🔥 Sua Ofensiva")
+    if st.button("Verificar minha constância"):
+        # Chamada para a rota de finalizar/status que calcula o bitcount
+        resp = requests.post(f"{API_URL}/sessao/finalizar/{user_id}")
+        if resp.status_code == 200:
+            dias = resp.json().get("dias_totais_no_ano")
+            st.metric("Dias de estudo no ano", f"{dias} dias")
+        else:
+            st.error("Erro ao ler streak do Redis")
+
+# Testando a rota de Vocabulário (HyperLogLog do Redis)
+with col_vocab:
+    st.write("🗣️ Estimativa de Vocabulário")
+    novas_palavras = st.text_input("Adicionar palavras aprendidas (ex: maison, école)")
+    if st.button("Atualizar Vocabulário"):
+        if novas_palavras:
+            lista = [p.strip() for p in novas_palavras.split(",")]
+            resp = requests.post(f"{API_URL}/vocabulario/adicionar/{user_id}", json=lista)
+            if resp.status_code == 200:
+                total = resp.json().get("total_palavras_vistas_aproximadamente")
+                st.info(f"Seu vocabulário estimado é de {total} palavras!")
+
+if st.button("Material novo (Bloom Filter)"):
+    resp = requests.get(f"{API_URL}/material/proximo/{user_id}")
+
+    if resp.status_code == 200:
+        data = resp.json()
+
+        if "msg" in data:
+            st.warning(data["msg"])
+        else:
+            st.success("Material novo encontrado!")
+            st.write(data)

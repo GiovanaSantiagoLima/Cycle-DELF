@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta, date
-from app.database import sessions_collection
+from app.database import db_connection
 from bson import ObjectId
 
+# Configurações de Ciclo
 MAX_SESSIONS = 4
 SESSION_DURATION = 15  # minutos
 
@@ -12,17 +13,17 @@ COMPETENCIES = [
     "Production Orale"
 ]
 
-def start_session(user_id: str):
-    # CORREÇÃO: Convertendo date para datetime para o MongoDB aceitar
+async def start_session(user_id: str):
+    """Inicia uma nova sessão de estudo assincronamente."""
     today_date = date.today()
     today_datetime = datetime.combine(today_date, datetime.min.time())
 
-    today_sessions = list(
-        sessions_collection.find({
-            "user_id": user_id,
-            "date": today_datetime  # Usando a data convertida
-        })
-    )
+    # No Motor (MongoDB Assíncrono), usamos to_list para pegar os resultados
+    cursor = db_connection.sessions.find({
+        "user_id": user_id,
+        "date": today_datetime
+    })
+    today_sessions = await cursor.to_list(length=100)
 
     completed_competencies = [
         s["competency"] for s in today_sessions if s.get("completed")
@@ -35,22 +36,19 @@ def start_session(user_id: str):
             "cycle_completed": True
         }
 
-    next_competency = None
-    for comp in COMPETENCIES:
-        if comp not in completed_competencies:
-            next_competency = comp
-            break
+    # Encontra a próxima competência disponível
+    next_competency = next((comp for comp in COMPETENCIES if comp not in completed_competencies), None)
 
     session = {
         "user_id": user_id,
         "competency": next_competency,
-        "date": today_datetime, # Salva como datetime
+        "date": today_datetime,
         "start_time": datetime.now(),
         "end_time": datetime.now() + timedelta(minutes=SESSION_DURATION),
         "completed": False
     }
 
-    result = sessions_collection.insert_one(session)
+    result = await db_connection.sessions.insert_one(session)
 
     return {
         "message": "Sessão iniciada com sucesso",
@@ -62,8 +60,9 @@ def start_session(user_id: str):
     }
 
 
-def finish_session(session_id: str):
-    session = sessions_collection.find_one({"_id": ObjectId(session_id)})
+async def finish_session(session_id: str):
+    """Finaliza uma sessão existente assincronamente."""
+    session = await db_connection.sessions.find_one({"_id": ObjectId(session_id)})
 
     if not session:
         return {"message": "Sessão não encontrada"}
@@ -74,30 +73,24 @@ def finish_session(session_id: str):
             "competency": session["competency"]
         }
 
-    sessions_collection.update_one(
+    # Atualiza o status para completado
+    await db_connection.sessions.update_one(
         {"_id": ObjectId(session_id)},
         {"$set": {"completed": True, "finished_at": datetime.now()}}
     )
 
-    # CORREÇÃO: Convertendo date para datetime para o MongoDB aceitar
-    today_date = date.today()
-    today_datetime = datetime.combine(today_date, datetime.min.time())
+    today_datetime = datetime.combine(date.today(), datetime.min.time())
 
-    completed_sessions = list(
-        sessions_collection.find({
-            "user_id": session["user_id"],
-            "date": today_datetime,
-            "completed": True
-        })
-    )
+    # Busca sessões completadas hoje para calcular o progresso
+    cursor = db_connection.sessions.find({
+        "user_id": session["user_id"],
+        "date": today_datetime,
+        "completed": True
+    })
+    completed_sessions = await cursor.to_list(length=100)
 
     completed_competencies = [s["competency"] for s in completed_sessions]
-
-    next_competency = None
-    for comp in COMPETENCIES:
-        if comp not in completed_competencies:
-            next_competency = comp
-            break
+    next_competency = next((comp for comp in COMPETENCIES if comp not in completed_competencies), None)
 
     return {
         "message": "Sessão finalizada com sucesso",
@@ -108,26 +101,20 @@ def finish_session(session_id: str):
     }
 
 
-def get_cycle_status(user_id: str):
-    # CORREÇÃO: Convertendo date para datetime para o MongoDB aceitar
-    today_date = date.today()
-    today_datetime = datetime.combine(today_date, datetime.min.time())
+async def get_cycle_status(user_id: str):
+    """Verifica o status atual do ciclo do usuário assincronamente."""
+    today_datetime = datetime.combine(date.today(), datetime.min.time())
 
-    sessions = list(
-        sessions_collection.find({
-            "user_id": user_id,
-            "date": today_datetime,
-            "completed": True
-        }, {"_id": 0})
-    )
+    cursor = db_connection.sessions.find({
+        "user_id": user_id,
+        "date": today_datetime,
+        "completed": True
+    }, {"_id": 0})
+    
+    sessions = await cursor.to_list(length=100)
 
     completed_competencies = [s["competency"] for s in sessions]
-
-    next_competency = None
-    for comp in COMPETENCIES:
-        if comp not in completed_competencies:
-            next_competency = comp
-            break
+    next_competency = next((comp for comp in COMPETENCIES if comp not in completed_competencies), None)
 
     return {
         "user_id": user_id,

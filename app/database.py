@@ -9,9 +9,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Pega as URLs das variáveis de ambiente
-MONGO_URI = os.getenv("MONGO_URI")
+MONGO_URL = os.getenv("MONGO_URL")
 REDIS_URL = os.getenv("REDIS_URL")
-
+print("MONGO_URL:", MONGO_URL)
 class Database:
     client: AsyncIOMotorClient = None
     db = None
@@ -25,7 +25,7 @@ class Database:
 db_connection = Database()
 
 async def connect_to_nosql():
-    db_connection.client = AsyncIOMotorClient(MONGO_URI)
+    db_connection.client = AsyncIOMotorClient(MONGO_URL)
     db_connection.db = db_connection.client["cycledelf"]
     
     db_connection.users = db_connection.db["users"]
@@ -33,7 +33,7 @@ async def connect_to_nosql():
     db_connection.materials = db_connection.db["materials"]
     db_connection.questions = db_connection.db["questions"]
 
-    db_connection.redis = redis.from_url(REDIS_URL, decode_responses=True)
+    db_connection.redis = redis.from_url("redis://localhost:6379", decode_responses=True)
     
     print("✅ Conectado ao MongoDB Atlas e ao Redis!")
 

@@ -87,11 +87,8 @@ if "material" in st.session_state:
             * **Abaixo de 50:** Tive muita dificuldade em estruturar as frases.
             """)
         
-        # O slider agora faz sentido porque você tem uma "tabela" acima para se basear
         score = st.slider("Qual nota você se dá baseada nos critérios acima?", 0, 100, 70)
     else:
-        # Para compreensão (Écrite/Orale), se não houver exercício de marcar, 
-        # o slider serve para o quão bem você entendeu o conteúdo.
         score = st.slider("Nível de compreensão (0-100%)", 0, 100, 80)
 
     if st.button("Finalizar estudo"):
