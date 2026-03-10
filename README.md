@@ -1,64 +1,65 @@
-![Cycle DELF](https://img.shields.io/badge/🇫🇷%20Cycle%20DELF-Préparation%204x15-blue?style=for-the-badge&labelColor=white&color=red)     por Giovana Santiago Lima
+# ![Cycle DELF](https://img.shields.io/badge/🇫🇷%20Cycle%20DELF-Préparation%204x15-blue?style=for-the-badge&labelColor=white&color=red)
 
-Trabalho Prático de Banco de Dados NoSQL
+**Desenvolvido por Giovana Santiago Lima** *Trabalho Prático de Banco de Dados NoSQL — Sistemas de Informação / Gestão da Informação (UFU)*
 
-Um sistema para estudar para o DELF com consistência, leveza e equilíbrio.
+---
 
-**📘 Visão Geral**
+## 📘 Visão Geral
+O **Cycle DELF** é uma plataforma inteligente projetada para estudantes que buscam a certificação francesa (B1/B2). O sistema utiliza a metodologia **4×15** — 1 hora diária dividida em 4 blocos de 15 minutos — garantindo equilíbrio entre as competências do exame sem sobrecarga mental.
 
-O Cycle DELF é uma plataforma pensada para estudantes que desejam se preparar para o DELF (Diplôme d'Études en Langue Française) de forma diária, estruturada e sustentável.
-A proposta central é transformar o preparo para o exame em um hábito simples e repetível, utilizando ciclos curtos de aprendizagem que distribuem as habilidades de forma equilibrada.
+O diferencial técnico deste projeto é a arquitetura de **Persistência Poliglota**, utilizando três modelos NoSQL distintos para resolver desafios específicos de performance, conexão e busca semântica.
 
-**✨ Entrega de Valor: Consistência Balanceada**
 
-O sistema funciona com o método Sessão 4×15 — quatro módulos de 15 minutos, cada um dedicado a uma competência do exame.
-Esse formato:
-- reduz a sobrecarga mental;
-- garante equilíbrio entre todas as áreas avaliadas;
-- facilita a criação de um hábito sólido e duradouro.
 
-**Funcionalidade Principal: Gerador 4×15**
+---
 
-O Cycle DELF organiza automaticamente a sessão completa do dia, guiando o estudante em cada etapa.
+## 🛠️ Arquitetura de Dados (NoSQL)
 
-**1. 📚 Módulos Fixos de 15 Minutos**
+A escolha das tecnologias foi baseada na natureza de cada dado do ecossistema:
 
-Cada sessão diária consiste em quatro blocos de 15 minutos, totalizando 1 hora de estudo focado. Os módulos correspondem às competências oficiais do DELF:
+### 1. ⚡ Redis (Key-Value)
+Focado em **Alta Performance** e métricas em tempo real.
+* **Streak Tracker (Bitmaps):** Gerencia a constância do usuário com baixíssimo consumo de memória.
+* **Vocabulário (HyperLogLog):** Contagem eficiente de termos únicos encontrados pelo aluno durante os estudos.
 
-| Habilidade | Foco |
-|-----------|------|
-| **Compréhension Orale** | Treino de escuta, notas e compreensão de sotaques. |
-| **Production Écrite** | Estruturação de textos: cartas, e-mails, sínteses e ensaios. |
-| **Compréhension Écrite** | Leitura estratégica, scanning e vocabulário específico. |
-| **Production Orale** | Simulações, prompts, gravações e fluência. |
+### 2. 🕸️ Neo4j (Grafos)
+Focado em **Relacionamento e Descoberta**.
+* **Knowledge Graph:** Mapeamento de conexões entre `Usuarios` e `Materiais`.
+* **Recomendação:** Identificação de "materiais hubs" e perfis de estudo similares através de relacionamentos `ESTUDOU`.
 
-O sistema controla o tempo, orienta a troca de módulo e registra o progresso de cada sessão.
 
-**2. 📈 Streak Tracker (Acompanhamento Visual)**
 
-Ao concluir o ciclo diário, o usuário desbloqueia uma marca visual no calendário de streaks.
-Esse acompanhamento gamificado:
-- reforça o hábito;
-- aumenta o engajamento;
-- mantém o aluno motivado em manter sua sequência ativa.
+### 3. 🍃 MongoDB Atlas (Documento & Vetor)
+Focado em **Flexibilidade e IA**.
+* **Base Documental:** Armazenamento central de todos os materiais de estudo.
+* **Vector Search (Busca Semântica):** Implementação de busca por significado utilizando Embeddings (`paraphrase-multilingual-MiniLM-L12-v2`). O sistema encontra conteúdos por contexto, indo além da simples busca por palavras-chave.
 
-**🎯 Público-alvo**
 
-O Cycle DELF foi feito para estudantes de francês que:
-- possuem nível B1 ou B2;
-- têm rotinas cheias e precisam de um método eficiente em pouco tempo,
-- lutam com a falta de consistência ou com sessões longas demais,
-- querem garantir preparo equilibrado em todas as competências do exame.
 
-**🛠️ Tecnologias Planejadas**
+---
 
-![HTML](https://img.shields.io/badge/HTML5-e34f26?style=for-the-badge&logo=html5&logoColor=white)
-![CSS](https://img.shields.io/badge/CSS3-1572b6?style=for-the-badge&logo=css3&logoColor=white)
-![JavaScript](https://img.shields.io/badge/JavaScript-f7df1e?style=for-the-badge&logo=javascript&logoColor=black)
-![FastAPI](https://img.shields.io/badge/FastAPI-109989?style=for-the-badge&logo=fastapi&logoColor=white)
+## ✨ Funcionalidades Principais
 
-**Recursos Integrados**
-- Banco de prompts para produção escrita e oral
-- Biblioteca de áudios e vídeos filtrados por nível (B1–B2)
-- Timer automático por módulo
-- Sistema de progresso e streaks
+* **Busca Inteligente:** Encontre materiais por intenção (ex: buscar "comida" retorna "déjeuner" ou "gastronomie").
+* **Visualização de Grafo:** Interface que mostra como o conhecimento está distribuído entre os usuários.
+* **Gamificação:** Streak diário que incentiva o hábito sem pesar no carregamento da página.
+* **Gerador 4×15:** Organização automática das competências: *Compréhension Orale, Production Écrite, Compréhension Écrite e Production Orale.*
+
+---
+
+## 🚀 Stack Tecnológica
+
+* **Linguagem:** Python 3.12 (FastAPI)
+* **Modelos de IA:** Sentence-Transformers (HuggingFace)
+* **Bancos de Dados:** MongoDB Atlas, Redis Cloud, Neo4j Aura
+* **Front-end:** Streamlit /  JS
+
+---
+
+## 📂 Estrutura do Projeto
+
+* `/app`: Código-fonte da API, rotas e integração com bancos.
+* `/screenshots`: Evidências de funcionamento (Busca Vetorial, Grafos e Redis).
+* `vetor.py`: Script para extração e povoamento de embeddings no MongoDB.
+* `grafo.py`: Script para modelagem e criação de relacionamentos no Neo4j.
+
